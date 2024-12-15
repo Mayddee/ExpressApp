@@ -1,12 +1,15 @@
 import express from "express";
-import usersRouter from "./routes/users.mjs";
+import router from "./routes/index.mjs";
 import { resolveIndexByUserId, loggingMiddleware } from "./utils/middlewares.mjs";
+import cookieParser from "cookie-parser"
 
 import { mockUsers } from "./utils/constants.mjs";
 const app = express() //reference
 
-app.use(express.json())
-app.use(usersRouter)
+app.use(express.json());
+
+app.use(cookieParser("helloworld"));
+app.use(router)
 
 
 
@@ -38,6 +41,7 @@ app.get("/", (request, response, next) => {
 }, 
 (request, response) => {
     // response.send({msg: "Hello!"})
+    response.cookie("hello", "world", { maxAge: 15000 * 2, signed: true })
     response.status(201).send({msg: "Hello!"})
 });
 
@@ -54,9 +58,6 @@ app.get("/", (request, response, next) => {
     
 // })
 
-app.get("/api/products", (req, res) => {
-    res.send([{id: 123, name: "Chicken breast", price: 323.32}])
-})
 
 // app.get("/api/users/:id", (req, res)=> {
 //     console.log(req.params)

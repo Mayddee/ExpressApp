@@ -6,7 +6,7 @@ import { loggingMiddleware } from "../utils/middlewares.mjs";
 
 const router = Router();
 
-app.use(loggingMiddleware, (request, response, next) => {
+router.use(loggingMiddleware, (request, response, next) => {
     console.log("Finished Loading...")
     next();
 }) //it must be before endpoints since order matters

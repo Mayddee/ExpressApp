@@ -8,7 +8,7 @@ const router = Router();
 
 router.get("/api/users", query("filter").isString().notEmpty().withMessage("Must not be empty").isLength({min: 3, max: 10}).withMessage("Must be 3-10 characters"), (request, response) => {
     console.log(request["express-validator#contexts"])
-const result = validationResult(request) //error handling of query filter
+    const result = validationResult(request) //error handling of query filter
     console.log(result)
     const { query: { filter, value } } = request;
     
