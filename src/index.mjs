@@ -3,9 +3,11 @@ import router from "./routes/index.mjs";
 import { resolveIndexByUserId, loggingMiddleware } from "./utils/middlewares.mjs";
 import cookieParser from "cookie-parser"
 import session from "express-session"
-import { query, validationResult, body, matchedData, checkSchema, check } from "express-validator"
+import { query, validationResult, body, matchedData, checkSchema, check } from "express-validator";
 import { createUserValidationSchema } from "./utils/validationSchemas.mjs";
 import { mockUsers } from "./utils/constants.mjs";
+import passport from "passport";
+import "./strategies/local-strategy.mjs";
 
 const app = express() //reference
 
@@ -16,11 +18,14 @@ app.use(session({
     secret: 'madina you are',
     saveUninitialized: false, //to not store if session object has nothing to save memory
     resave: false, //forcing not to save session to session store if not modified
-    cookie: {//to configure how long cookie will live
+    cookie: { //to configure how long cookie will live
         maxAge: 60000 * 60, // to set user be logged in for 1 hour
     }
 })) // before regestering any endpoints as routes
-app.use(router)
+
+app.use(passport.initialize()); // after sessions use, before routes
+app.use(passport.session());
+app.use(router);
 
 
 
@@ -59,25 +64,55 @@ app.get("/", (request, response, next) => {
     response.status(201).send({msg: "Hello!"})
 });
 
+//1) we used it in Sessions part 
+// app.post('/api/auth', checkSchema(createUserValidationSchema), (request, response) => {
+//     const result = validationResult(request);
+//     console.log("Validation result: ", result);
+//     const data = matchedData(request);
+//     const { username, password } = data ;
+//     const findUser = mockUsers.find(user => username === user.username);
+//     if(!findUser || findUser.password !== password) return response.status(401).send({msg: "Wrong credentials!"});
 
-app.post('/api/auth', checkSchema(createUserValidationSchema), (request, response) => {
-    const result = validationResult(request);
-    console.log("Validation result: ", result);
-    const data = matchedData(request);
-    const { username, password } = data ;
-    const findUser = mockUsers.find(user => username === user.username);
-    if(!findUser || findUser.password !== password) return response.status(401).send({msg: "Wrong credentials!"});
+//     request.session.user = findUser;
+//     return response.status(200).send(findUser);
+// })
 
-    request.session.user = findUser;
-    return response.status(200).send(findUser);
+//2)
+app.post("/api/auth", 
+    passport.authenticate("local"), //since strategy for local we pass "local" other "google, "github" , "discord"
+    (request, response) => {
+        return response.sendStatus(200);
+
 })
 
-app.get('/api/auth/status', (request, response) => {
-    request.sessionStore.get(request.sessionID, (err, session) => {
-        console.log(session)
-    })
-    return request.session.user ? response.status(200).send(request.session.user) : response.status(401).send({msg: "Not Authenticated"}) ;
-})
+//1) with Sessions
+// app.get('/api/auth/status', (request, response) => {
+//     request.sessionStore.get(request.sessionID, (err, session) => {
+//         console.log(session)
+//     })
+//     return request.session.user ? response.status(200).send(request.session.user) : response.status(401).send({msg: "Not Authenticated"}) ;
+// })
+
+
+//2) with Passport
+app.get("/api/auth/status", (request, response) => {
+    console.log("Inside /api/auth/status endpoint");
+    console.log(request.user);
+    console.log(request.session);
+
+    return request.user ? response.send(request.user) : response.sendStatus(401);
+
+
+});
+
+app.post("/api/auth/logout", (request, response) => {
+    if(!request.user) return response.sendStatus(401);
+
+    request.logout((err) => {
+        if (err) return response.sendStatus(400);
+        return response.sendStatus(200);
+    });
+});
 
 app.post('/api/cart', (request, response) => {
     if(!request.session.user) return response.sendStatus(401);
