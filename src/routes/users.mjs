@@ -7,6 +7,16 @@ const router = Router();
 
 
 router.get("/api/users", query("filter").isString().notEmpty().withMessage("Must not be empty").isLength({min: 3, max: 10}).withMessage("Must be 3-10 characters"), (request, response) => {
+    console.log("user session: ", request.session)
+    console.log(request.session.id)
+    request.sessionStore.get(request.session.id, (error, sessionData) => {
+        if(error) {
+            console.log(error);
+            throw error;
+        }
+        console.log(sessionData)
+    }) //pass in callback function, session`id
+
     console.log(request["express-validator#contexts"])
     const result = validationResult(request) //error handling of query filter
     console.log(result)

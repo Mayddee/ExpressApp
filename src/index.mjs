@@ -2,13 +2,24 @@ import express from "express";
 import router from "./routes/index.mjs";
 import { resolveIndexByUserId, loggingMiddleware } from "./utils/middlewares.mjs";
 import cookieParser from "cookie-parser"
-
+import session from "express-session"
+import { query, validationResult, body, matchedData, checkSchema, check } from "express-validator"
+import { createUserValidationSchema } from "./utils/validationSchemas.mjs";
 import { mockUsers } from "./utils/constants.mjs";
+
 const app = express() //reference
 
 app.use(express.json());
 
 app.use(cookieParser("helloworld"));
+app.use(session({
+    secret: 'madina you are',
+    saveUninitialized: false, //to not store if session object has nothing to save memory
+    resave: false, //forcing not to save session to session store if not modified
+    cookie: {//to configure how long cookie will live
+        maxAge: 60000 * 60, // to set user be logged in for 1 hour
+    }
+})) // before regestering any endpoints as routes
 app.use(router)
 
 
@@ -41,8 +52,49 @@ app.get("/", (request, response, next) => {
 }, 
 (request, response) => {
     // response.send({msg: "Hello!"})
+    console.log(request.session)
+    console.log(request.session.id)
+    request.session.visited =true
     response.cookie("hello", "world", { maxAge: 15000 * 2, signed: true })
     response.status(201).send({msg: "Hello!"})
+});
+
+
+app.post('/api/auth', checkSchema(createUserValidationSchema), (request, response) => {
+    const result = validationResult(request);
+    console.log("Validation result: ", result);
+    const data = matchedData(request);
+    const { username, password } = data ;
+    const findUser = mockUsers.find(user => username === user.username);
+    if(!findUser || findUser.password !== password) return response.status(401).send({msg: "Wrong credentials!"});
+
+    request.session.user = findUser;
+    return response.status(200).send(findUser);
+})
+
+app.get('/api/auth/status', (request, response) => {
+    request.sessionStore.get(request.sessionID, (err, session) => {
+        console.log(session)
+    })
+    return request.session.user ? response.status(200).send(request.session.user) : response.status(401).send({msg: "Not Authenticated"}) ;
+})
+
+app.post('/api/cart', (request, response) => {
+    if(!request.session.user) return response.sendStatus(401);
+    const data = matchedData(request);
+    const { body : item} = request;
+    const { cart } = request.session;
+    if (cart) {
+        cart.push(item)
+    } else {
+        request.session.cart = [item]
+    }
+    return response.status(201).send(item)
+})
+
+app.get('/api/cart', (request, response) => {
+    if (!request.session.user) return response.sendStatus(401);
+        return response.send(request.session.cart ?? []);
 });
 
 // app.get("/api/users", query("filter").isString().notEmpty().withMessage("Must not be empty").isLength({min: 3, max: 10}).withMessage("Must be 3-10 characters"), (request, response) => {
